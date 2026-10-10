@@ -6,7 +6,6 @@ import FloatingMusicPlayer from './components/FloatingMusicPlayer';
 import MusicLibrary from './components/MusicLibrary';
 import PujoAiModal from './components/PujoAiModal';
 import { LOCAL_AMBIENT_TRACKS } from './data/tracks';
-import { useSpotifyWebPlayback } from './hooks/useSpotifyPlayer';
 import { useDhakAudio } from './hooks/useDhakAudio';
 
 function App() {
@@ -16,7 +15,7 @@ function App() {
     } catch {
       return 'en';
     }
-  }); // Default 'en' on every fresh page load, user can toggle to 'bn'
+  }); // Default 'en' on fresh load, user can toggle to 'bn'
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
@@ -24,38 +23,23 @@ function App() {
   const [isExperienceActive, setIsExperienceActive] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
   
-  // Real HTML5 Audio Element Ref for local festive audio playback
+  // HTML5 Audio Element Ref for local festive audio playback
   const audioRef = useRef(null);
-
-  // Initialize official Spotify Web Playback SDK integration
-  const spotifyPlayer = useSpotifyWebPlayback();
-
-  // Active main playback state
-  const isMainPlaying = spotifyPlayer.isAvailable && spotifyPlayer.isReady
-    ? spotifyPlayer.isPlaying
-    : isPlaying;
 
   // Initialize dedicated Dhak audio controller with smooth crossfade
   const dhakAudio = useDhakAudio({
     mainAudioRef: audioRef,
-    spotifyPlayer,
     userVolume: 0.85,
-    isMainPlaying
+    isMainPlaying: isPlaying
   });
 
   const currentAmbientTrack = LOCAL_AMBIENT_TRACKS[currentTrackIndex] || LOCAL_AMBIENT_TRACKS[0];
 
-  // Whether active playback is running either through Spotify SDK, local audio, or Dhak ambience
-  const soundPlaying = isMainPlaying || dhakAudio.isDhakPlaying;
+  // Whether active sound is playing (local ambient radio or Dhak ambience)
+  const soundPlaying = isPlaying || dhakAudio.isDhakPlaying;
 
-  // Play / Pause handling for local player (when Spotify SDK is not controlling)
+  // Play / Pause handling for local player
   const handlePlayPause = useCallback(() => {
-    // If Spotify SDK is active and connected, dispatch to Spotify SDK
-    if (spotifyPlayer.isAvailable && spotifyPlayer.isReady) {
-      spotifyPlayer.togglePlay();
-      return;
-    }
-
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -77,35 +61,20 @@ function App() {
           });
       }
     }
-  }, [isPlaying, currentAmbientTrack.audioUrl, spotifyPlayer]);
+  }, [isPlaying, currentAmbientTrack.audioUrl]);
 
   // Next Track
   const handleNextTrack = useCallback(() => {
-    if (spotifyPlayer.isAvailable && spotifyPlayer.isReady) {
-      spotifyPlayer.nextTrack();
-      return;
-    }
-
-    setCurrentTrackIndex((prevIndex) => {
-      return (prevIndex + 1) % LOCAL_AMBIENT_TRACKS.length;
-    });
-  }, [spotifyPlayer]);
+    setCurrentTrackIndex((prevIndex) => (prevIndex + 1) % LOCAL_AMBIENT_TRACKS.length);
+  }, []);
 
   // Previous Track
   const handlePrevTrack = useCallback(() => {
-    if (spotifyPlayer.isAvailable && spotifyPlayer.isReady) {
-      spotifyPlayer.previousTrack();
-      return;
-    }
-
-    setCurrentTrackIndex((prevIndex) => {
-      return (prevIndex - 1 + LOCAL_AMBIENT_TRACKS.length) % LOCAL_AMBIENT_TRACKS.length;
-    });
-  }, [spotifyPlayer]);
+    setCurrentTrackIndex((prevIndex) => (prevIndex - 1 + LOCAL_AMBIENT_TRACKS.length) % LOCAL_AMBIENT_TRACKS.length);
+  }, []);
 
   // Select Track from Floating Player or local playlist switch
   const handleSelectTrack = useCallback((track) => {
-    // If track is a local ambient track
     const idx = LOCAL_AMBIENT_TRACKS.findIndex((t) => t.id === track.id);
     if (idx !== -1) {
       if (idx === currentTrackIndex) {
@@ -140,10 +109,8 @@ function App() {
     setIsNightMode((prev) => !prev);
   }, []);
 
-  // Switch audio source whenever currentTrack changes (when not running on Spotify SDK)
+  // Switch audio source whenever currentTrack changes
   useEffect(() => {
-    if (spotifyPlayer.isAvailable && spotifyPlayer.isReady) return;
-
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -161,7 +128,7 @@ function App() {
           });
       }
     }
-  }, [currentTrackIndex, currentAmbientTrack.audioUrl, isPlaying, spotifyPlayer.isAvailable, spotifyPlayer.isReady]);
+  }, [currentTrackIndex, currentAmbientTrack.audioUrl, isPlaying]);
 
   return (
     <main className="pujo-aurora-app">
@@ -202,16 +169,14 @@ function App() {
         tracks={LOCAL_AMBIENT_TRACKS}
         lang={lang}
         audioRef={audioRef}
-        spotifyPlayer={spotifyPlayer}
         dhakAudio={dhakAudio}
       />
 
-      {/* 5. Official Spotify Playlist Modal & SDK Connect Drawer */}
+      {/* 5. Official Spotify Playlist Modal with Embedded Player */}
       <MusicLibrary 
         isOpen={isLibraryOpen}
         onClose={() => setIsLibraryOpen(false)}
         lang={lang}
-        spotifyPlayer={spotifyPlayer}
       />
 
       {/* 6. Pujo AI — Your Festival Companion & Greeting Creator Modal */}
@@ -221,7 +186,7 @@ function App() {
         lang={lang}
       />
 
-      {/* Real HTML5 Audio Element for local audio streams */}
+      {/* HTML5 Audio Element for local background streams */}
       <audio 
         ref={audioRef}
         preload="metadata"

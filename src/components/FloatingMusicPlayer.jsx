@@ -12,22 +12,19 @@ import {
   Radio,
   Drum,
   Shuffle,
-  Sparkles,
-  Info,
   Music2
 } from 'lucide-react';
 import { SPOTIFY_PLAYLIST_URL } from '../data/tracks';
 
 /**
  * FloatingMusicPlayer
- * Refined single compact glass player floating near the bottom-center of the wallpaper,
- * styled after the user's reference screenshot:
- * - PUJA RADIO / DHAK mode toggle pills floating above the player
- * - Track album thumbnail on the left
- * - Song Title & Artist with elapsed / remaining time
- * - Shuffle, Previous, Play/Pause, Next, Library controls
- * - Volume slider and Spotify link
- * - Direct integration with Spotify Web Playback SDK when active, or verified local festive audio
+ * Refined single compact glass player floating near the bottom-center of the wallpaper:
+ * - PUJA RADIO / DHAK mode toggle pills and direct SPOTIFY PLAYLIST embed launcher
+ * - Track album thumbnail on the left with subtle animated equalizer
+ * - Song Title & Artist with elapsed / remaining time timeline
+ * - Shuffle, Previous, Play/Pause, Next, and Library controls
+ * - Volume slider and direct Spotify link
+ * - Direct launcher for the official Spotify playlist embed modal
  */
 const FloatingMusicPlayer = ({
   currentTrack,
@@ -37,7 +34,6 @@ const FloatingMusicPlayer = ({
   onPrev,
   onToggleLibrary,
   audioRef,
-  spotifyPlayer = null,
   dhakAudio = null
 }) => {
   const [localCurrentTime, setLocalCurrentTime] = useState(0);
@@ -47,23 +43,12 @@ const FloatingMusicPlayer = ({
   const [isLoading, setIsLoading] = useState(false);
   const [activeMode, setActiveMode] = useState('radio'); // 'radio' | 'dhak'
 
-  const isSpotifyActive = Boolean(spotifyPlayer?.isAvailable && spotifyPlayer?.isReady);
-  const isActuallyPlaying = isSpotifyActive ? spotifyPlayer.isPlaying : isPlaying;
+  const displayTrack = currentTrack;
+  const currentTime = localCurrentTime;
+  const totalDuration = localDuration || displayTrack?.durationSec || 240;
 
-  // Active track information (Spotify Web Playback SDK state if active, else currentTrack)
-  const displayTrack = (isSpotifyActive && spotifyPlayer?.currentTrack) 
-    ? spotifyPlayer.currentTrack 
-    : currentTrack;
-
-  const currentTime = isSpotifyActive ? (spotifyPlayer.position || 0) : localCurrentTime;
-  const totalDuration = isSpotifyActive 
-    ? (spotifyPlayer.duration || displayTrack?.durationSec || 240)
-    : (localDuration || displayTrack?.durationSec || 240);
-
-  // Synchronize local audio element events when Spotify SDK is not active
+  // Synchronize local audio element events
   useEffect(() => {
-    if (isSpotifyActive) return;
-
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -102,18 +87,14 @@ const FloatingMusicPlayer = ({
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [audioRef, displayTrack, onNext, isSpotifyActive]);
+  }, [audioRef, displayTrack, onNext]);
 
   // Handle Seeking
   const handleSeek = (e) => {
     const newTime = parseFloat(e.target.value);
-    if (isSpotifyActive && spotifyPlayer) {
-      spotifyPlayer.seek(newTime);
-    } else {
-      setLocalCurrentTime(newTime);
-      if (audioRef.current && Number.isFinite(newTime)) {
-        audioRef.current.currentTime = newTime;
-      }
+    setLocalCurrentTime(newTime);
+    if (audioRef.current && Number.isFinite(newTime)) {
+      audioRef.current.currentTime = newTime;
     }
   };
 
@@ -121,58 +102,21 @@ const FloatingMusicPlayer = ({
   const handleVolumeChange = (e) => {
     const val = parseFloat(e.target.value);
     setVolume(val);
-    if (isSpotifyActive && spotifyPlayer) {
-      spotifyPlayer.setVolume(val);
-      setIsMuted(val === 0);
-    } else if (audioRef.current) {
+    if (audioRef.current) {
       audioRef.current.volume = val;
       setIsMuted(val === 0);
     }
   };
 
   const toggleMute = () => {
-    if (isSpotifyActive && spotifyPlayer) {
+    if (audioRef.current) {
       if (isMuted) {
-        spotifyPlayer.setVolume(volume || 0.8);
-        setIsMuted(false);
-      } else {
-        spotifyPlayer.setVolume(0);
-        setIsMuted(true);
-      }
-    } else if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.volume = volume || 0.8;
+        audioRef.current.volume = volume || 0.85;
         setIsMuted(false);
       } else {
         audioRef.current.volume = 0;
         setIsMuted(true);
       }
-    }
-  };
-
-  // Play / Pause dispatcher
-  const handlePlayPauseClick = () => {
-    if (isSpotifyActive && spotifyPlayer) {
-      spotifyPlayer.togglePlay();
-    } else {
-      onPlayPause();
-    }
-  };
-
-  // Next / Prev dispatcher
-  const handleNextClick = () => {
-    if (isSpotifyActive && spotifyPlayer) {
-      spotifyPlayer.nextTrack();
-    } else {
-      onNext();
-    }
-  };
-
-  const handlePrevClick = () => {
-    if (isSpotifyActive && spotifyPlayer) {
-      spotifyPlayer.previousTrack();
-    } else {
-      onPrev();
     }
   };
 
@@ -200,7 +144,7 @@ const FloatingMusicPlayer = ({
 
   return (
     <div className="floating-player-wrapper" role="region" aria-label="Audio Player">
-      {/* Top Floating Category Pills: PUJA RADIO and DHAK (as in the reference image) */}
+      {/* Top Floating Category Pills: PUJA RADIO, DHAK, and SPOTIFY PLAYLIST */}
       <div className="player-mode-pills-row">
         <button 
           type="button" 
@@ -224,66 +168,20 @@ const FloatingMusicPlayer = ({
           {isDhakActive && <span className="dhak-dot-indicator" />}
         </button>
 
-        {/* Dynamic Verified Spotify Runtime Status Pill */}
-        {(() => {
-          if (!spotifyPlayer?.token) {
-            return (
-              <button
-                type="button"
-                className="player-mode-pill spotify-status-pill status-connect"
-                onClick={onToggleLibrary}
-                title="Connect your Spotify account to enable Web Playback SDK streaming"
-              >
-                <Music2 size={13} className="mode-pill-icon" />
-                <span>CONNECT SPOTIFY</span>
-              </button>
-            );
-          }
-
-          if (spotifyPlayer.isInitializing || !spotifyPlayer.isReady) {
-            return (
-              <button
-                type="button"
-                className="player-mode-pill spotify-status-pill status-connecting"
-                onClick={onToggleLibrary}
-                title={spotifyPlayer.statusMessage || "Connecting to Spotify Web Playback device..."}
-              >
-                <span className="spotify-pulse-dot spotify-pulse-amber" />
-                <span>CONNECTING...</span>
-              </button>
-            );
-          }
-
-          if (spotifyPlayer.isPlaying) {
-            return (
-              <button
-                type="button"
-                className="player-mode-pill spotify-status-pill status-playing"
-                onClick={onToggleLibrary}
-                title="Spotify Web Playback SDK is actively playing"
-              >
-                <span className="spotify-pulse-dot" />
-                <span>PLAYING</span>
-              </button>
-            );
-          }
-
-          return (
-            <button
-              type="button"
-              className="player-mode-pill spotify-status-pill status-ready"
-              onClick={onToggleLibrary}
-              title="Spotify Web Playback SDK device is ready"
-            >
-              <span className="spotify-pulse-dot" />
-              <span>SPOTIFY READY</span>
-            </button>
-          );
-        })()}
+        {/* Official Spotify Playlist Embed Launcher Pill */}
+        <button
+          type="button"
+          className="player-mode-pill spotify-status-pill status-ready"
+          onClick={onToggleLibrary}
+          title="Open official Spotify playlist embed"
+        >
+          <Music2 size={13} className="mode-pill-icon" />
+          <span>SPOTIFY PLAYLIST</span>
+        </button>
       </div>
 
       {/* Main Glass Floating Player Container */}
-      <div className={`floating-glass-player devipaksha-player-theme ${isActuallyPlaying ? 'glow-active' : ''}`}>
+      <div className={`floating-glass-player devipaksha-player-theme ${isPlaying ? 'glow-active' : ''}`}>
         
         {/* Left: Album Artwork */}
         <div className="player-artwork-box">
@@ -292,7 +190,7 @@ const FloatingMusicPlayer = ({
             alt={displayTrack.title} 
             className="player-artwork-img"
           />
-          {isActuallyPlaying && (
+          {isPlaying && (
             <div className="audio-equalizer-bars" aria-hidden="true">
               <span className="eq-bar bar-1"></span>
               <span className="eq-bar bar-2"></span>
@@ -313,11 +211,6 @@ const FloatingMusicPlayer = ({
               >
                 {displayTrack.title}
               </span>
-              {isSpotifyActive && isActuallyPlaying && (
-                <span className="spotify-active-badge" title="Streaming via official Spotify Web Playback SDK">
-                  <Sparkles size={10} /> SDK
-                </span>
-              )}
             </div>
             <span 
               className="player-artist-name" 
@@ -356,7 +249,7 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-control-btn btn-shuffle" 
-            onClick={handleNextClick}
+            onClick={onNext}
             title="Shuffle Track"
             aria-label="Shuffle Track"
           >
@@ -366,7 +259,7 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-control-btn" 
-            onClick={handlePrevClick}
+            onClick={onPrev}
             title="Previous Track"
             aria-label="Previous Track"
           >
@@ -376,13 +269,13 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-play-btn" 
-            onClick={handlePlayPauseClick}
-            title={isActuallyPlaying ? 'Pause' : 'Play'}
-            aria-label={isActuallyPlaying ? 'Pause' : 'Play'}
+            onClick={onPlayPause}
+            title={isPlaying ? 'Pause' : 'Play'}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
           >
             {isLoading ? (
               <Loader2 size={18} className="spin-animate" />
-            ) : isActuallyPlaying ? (
+            ) : isPlaying ? (
               <Pause size={18} />
             ) : (
               <Play size={18} className="play-icon-offset" />
@@ -392,7 +285,7 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-control-btn" 
-            onClick={handleNextClick}
+            onClick={onNext}
             title="Next Track"
             aria-label="Next Track"
           >
@@ -404,7 +297,7 @@ const FloatingMusicPlayer = ({
             type="button"
             className="player-control-btn btn-library-open"
             onClick={onToggleLibrary}
-            title="Open Playlist & Track Library"
+            title="Open Official Spotify Playlist"
             aria-label="Open Playlist"
           >
             <ListMusic size={16} />
@@ -448,14 +341,6 @@ const FloatingMusicPlayer = ({
         </div>
 
       </div>
-
-      {/* Subtle SDK status notice if Spotify Premium is not detected or logged out */}
-      {spotifyPlayer?.statusMessage && (
-        <div className="player-sdk-notice">
-          <Info size={12} className="notice-icon" />
-          <span>{spotifyPlayer.statusMessage}</span>
-        </div>
-      )}
     </div>
   );
 };

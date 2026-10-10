@@ -1,8 +1,8 @@
 // Official Spotify Playlist Configuration
 // https://open.spotify.com/playlist/1zVKSwcN1UDYBXsBWQlp16 ("Durga Puja Songs")
 export const SPOTIFY_PLAYLIST_ID = '1zVKSwcN1UDYBXsBWQlp16';
-export const SPOTIFY_PLAYLIST_URL = 'https://open.spotify.com/playlist/1zVKSwcN1UDYBXsBWQlp16';
-export const SPOTIFY_EMBED_URL = 'https://open.spotify.com/embed/playlist/1zVKSwcN1UDYBXsBWQlp16?utm_source=generator&theme=0';
+export const SPOTIFY_PLAYLIST_URL = 'https://open.spotify.com/playlist/1zVKSwcN1UDYBXsBWQlp16?si=0e4f04b0cfb5408b';
+export const SPOTIFY_EMBED_URL = 'https://open.spotify.com/embed/playlist/1zVKSwcN1UDYBXsBWQlp16?utm_source=generator&si=0e4f04b0cfb5408b';
 
 // Local ambient audio streams for background radio when Spotify Web Playback SDK is not active
 export const LOCAL_AMBIENT_TRACKS = [
