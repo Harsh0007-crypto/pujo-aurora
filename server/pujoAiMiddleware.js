@@ -261,14 +261,25 @@ export async function handlePujoAiRequest(req, res, env = {}) {
   const apiKey = getApiKey(env);
   const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown';
 
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    return res.end();
+  }
+
   const sendJson = (statusCode, obj) => {
     res.statusCode = statusCode;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(obj));
   };
 
+  const urlPath = req.url ? req.url.split('?')[0] : '';
+
   // 1. Status Check: GET /api/pujo-ai/status
-  if (req.method === 'GET' && req.url === '/api/pujo-ai/status') {
+  if (req.method === 'GET' && urlPath === '/api/pujo-ai/status') {
     return sendJson(200, {
       configured: Boolean(apiKey),
       provider: apiKey ? 'Google Gemini' : null,
@@ -301,7 +312,7 @@ export async function handlePujoAiRequest(req, res, env = {}) {
   }
 
   // 2. Chat Endpoint: POST /api/pujo-ai/chat
-  if (req.url === '/api/pujo-ai/chat') {
+  if (urlPath === '/api/pujo-ai/chat') {
     const prompt = (bodyData.prompt || '').trim();
     const lang = bodyData.lang === 'bn' ? 'bn' : 'en';
 
@@ -337,7 +348,7 @@ export async function handlePujoAiRequest(req, res, env = {}) {
   }
 
   // 3. Greeting Creator Endpoint: POST /api/pujo-ai/greeting
-  if (req.url === '/api/pujo-ai/greeting') {
+  if (urlPath === '/api/pujo-ai/greeting') {
     const name = (bodyData.name || '').trim();
     const lang = bodyData.lang === 'bn' ? 'bn' : 'en';
     const mood = (bodyData.mood || 'traditional').trim();
