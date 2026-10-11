@@ -7,6 +7,7 @@ import MusicLibrary from './components/MusicLibrary';
 import PujoAiModal from './components/PujoAiModal';
 import { LOCAL_AMBIENT_TRACKS } from './data/tracks';
 import { useDhakAudio } from './hooks/useDhakAudio';
+import { useYouTubePlaylistPlayer } from './hooks/useYouTubePlaylistPlayer';
 
 function App() {
   const [lang, setLang] = useState(() => {
@@ -23,20 +24,24 @@ function App() {
   const [isExperienceActive, setIsExperienceActive] = useState(false);
   const [isNightMode, setIsNightMode] = useState(false);
   
-  // HTML5 Audio Element Ref for local festive audio playback
+  // HTML5 Audio Element Ref for local festive audio playback fallback
   const audioRef = useRef(null);
+
+  // Initialize official YouTube Playlist Player (PLJAiFJ6bGyew)
+  const youtubePlayer = useYouTubePlaylistPlayer();
 
   // Initialize dedicated Dhak audio controller with smooth crossfade
   const dhakAudio = useDhakAudio({
     mainAudioRef: audioRef,
-    userVolume: 0.85,
-    isMainPlaying: isPlaying
+    youtubePlayer,
+    userVolume: youtubePlayer.volume,
+    isMainPlaying: youtubePlayer.isPlaying || isPlaying
   });
 
   const currentAmbientTrack = LOCAL_AMBIENT_TRACKS[currentTrackIndex] || LOCAL_AMBIENT_TRACKS[0];
 
-  // Whether active sound is playing (local ambient radio or Dhak ambience)
-  const soundPlaying = isPlaying || dhakAudio.isDhakPlaying;
+  // Whether active sound is playing (YouTube playlist, local ambient radio or Dhak ambience)
+  const soundPlaying = youtubePlayer.isPlaying || isPlaying || dhakAudio.isDhakPlaying;
 
   // Play / Pause handling for local player
   const handlePlayPause = useCallback(() => {
@@ -170,6 +175,7 @@ function App() {
         lang={lang}
         audioRef={audioRef}
         dhakAudio={dhakAudio}
+        youtubePlayer={youtubePlayer}
       />
 
       {/* 5. Official Spotify Playlist Modal with Embedded Player */}
@@ -195,6 +201,23 @@ function App() {
         onError={(e) => {
           console.warn('HTML5 Audio error encountered:', e);
           setIsPlaying(false);
+        }}
+      />
+
+      {/* Official YouTube IFrame Player mount for Durga Puja Playlist */}
+      <div 
+        id="youtube-player-mount"
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          width: '200px',
+          height: '120px',
+          opacity: 0.001,
+          pointerEvents: 'none',
+          zIndex: -1,
+          overflow: 'hidden'
         }}
       />
     </main>

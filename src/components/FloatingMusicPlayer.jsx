@@ -8,48 +8,60 @@ import {
   VolumeX, 
   ExternalLink, 
   ListMusic, 
-  Loader2,
-  Radio,
-  Drum,
-  Shuffle,
-  Music2
+  Loader2, 
+  Radio, 
+  Drum, 
+  Shuffle, 
+  AlertCircle
 } from 'lucide-react';
-import { SPOTIFY_PLAYLIST_URL } from '../data/tracks';
+import { SPOTIFY_PLAYLIST_URL, YOUTUBE_PLAYLIST_URL } from '../data/tracks';
 
 /**
  * FloatingMusicPlayer
  * Refined single compact glass player floating near the bottom-center of the wallpaper:
+ * - Direct YouTube IFrame Player API playlist integration (PLJAiFJ6bGyew)
+ * - Synchronized live track title, artist/channel, cover art, duration & seek timeline
  * - PUJA RADIO / DHAK mode toggle pills and direct SPOTIFY PLAYLIST embed launcher
- * - Track album thumbnail on the left with subtle animated equalizer
- * - Song Title & Artist with elapsed / remaining time timeline
- * - Shuffle, Previous, Play/Pause, Next, and Library controls
- * - Volume slider and direct Spotify link
- * - Direct launcher for the official Spotify playlist embed modal
+ * - Volume slider with Dhak ambience crossfading
+ * - Automatic skipping & user notification for embed-restricted tracks
  */
 const FloatingMusicPlayer = ({
   currentTrack,
-  isPlaying,
-  onPlayPause,
-  onNext,
-  onPrev,
+  isPlaying: fallbackIsPlaying = false,
+  onPlayPause: fallbackPlayPause,
+  onNext: fallbackNext,
+  onPrev: fallbackPrev,
   onToggleLibrary,
   audioRef,
-  dhakAudio = null
+  dhakAudio = null,
+  youtubePlayer = null,
+  lang: _lang = 'en'
 }) => {
   const [localCurrentTime, setLocalCurrentTime] = useState(0);
   const [localDuration, setLocalDuration] = useState(0);
-  const [volume, setVolume] = useState(0.85);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [localVolume, setLocalVolume] = useState(0.85);
+  const [localIsMuted, setLocalIsMuted] = useState(false);
+  const [localIsLoading, setLocalIsLoading] = useState(false);
   const [activeMode, setActiveMode] = useState('radio'); // 'radio' | 'dhak'
 
-  const displayTrack = currentTrack;
-  const currentTime = localCurrentTime;
-  const totalDuration = localDuration || displayTrack?.durationSec || 240;
+  // Determine active values (prefer YouTube Player API)
+  const isUsingYouTube = Boolean(youtubePlayer);
+  const displayTrack = (isUsingYouTube && youtubePlayer.currentTrack) ? youtubePlayer.currentTrack : currentTrack;
+  const isPlaying = isUsingYouTube ? youtubePlayer.isPlaying : fallbackIsPlaying;
+  const isLoading = isUsingYouTube ? youtubePlayer.isBuffering : localIsLoading;
+  const currentTime = isUsingYouTube ? youtubePlayer.currentTime : localCurrentTime;
+  const totalDuration = isUsingYouTube 
+    ? (youtubePlayer.duration || displayTrack?.durationSec || 240)
+    : (localDuration || displayTrack?.durationSec || 240);
+  const volume = isUsingYouTube ? youtubePlayer.volume : localVolume;
+  const isMuted = isUsingYouTube ? youtubePlayer.isMuted : localIsMuted;
+  const isShuffled = isUsingYouTube ? youtubePlayer.isShuffled : false;
+  const playerError = isUsingYouTube ? youtubePlayer.error : null;
 
-  // Synchronize local audio element events
+  // Synchronize local audio element events only if fallback audioRef is used
   useEffect(() => {
-    const audio = audioRef.current;
+    if (isUsingYouTube) return;
+    const audio = audioRef?.current;
     if (!audio) return;
 
     const handleTimeUpdate = () => {
@@ -58,15 +70,15 @@ const FloatingMusicPlayer = ({
 
     const handleLoadedMetadata = () => {
       setLocalDuration(audio.duration || displayTrack?.durationSec || 0);
-      setIsLoading(false);
+      setLocalIsLoading(false);
     };
 
-    const handleCanPlay = () => setIsLoading(false);
-    const handleWaiting = () => setIsLoading(true);
-    const handlePlaying = () => setIsLoading(false);
-    const handlePause = () => setIsLoading(false);
-    const handleError = () => setIsLoading(false);
-    const handleEnded = () => onNext();
+    const handleCanPlay = () => setLocalIsLoading(false);
+    const handleWaiting = () => setLocalIsLoading(true);
+    const handlePlaying = () => setLocalIsLoading(false);
+    const handlePause = () => setLocalIsLoading(false);
+    const handleError = () => setLocalIsLoading(false);
+    const handleEnded = () => fallbackNext?.();
 
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -87,36 +99,82 @@ const FloatingMusicPlayer = ({
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [audioRef, displayTrack, onNext]);
+  }, [audioRef, displayTrack, fallbackNext, isUsingYouTube]);
 
   // Handle Seeking
   const handleSeek = (e) => {
     const newTime = parseFloat(e.target.value);
-    setLocalCurrentTime(newTime);
-    if (audioRef.current && Number.isFinite(newTime)) {
-      audioRef.current.currentTime = newTime;
+    if (isUsingYouTube) {
+      youtubePlayer.seekTo(newTime);
+    } else {
+      setLocalCurrentTime(newTime);
+      if (audioRef?.current && Number.isFinite(newTime)) {
+        audioRef.current.currentTime = newTime;
+      }
     }
   };
 
   // Handle Volume Change
   const handleVolumeChange = (e) => {
     const val = parseFloat(e.target.value);
-    setVolume(val);
-    if (audioRef.current) {
-      audioRef.current.volume = val;
-      setIsMuted(val === 0);
+    if (isUsingYouTube) {
+      youtubePlayer.setVolume(val);
+    } else {
+      setLocalVolume(val);
+      if (audioRef?.current) {
+        audioRef.current.volume = val;
+        setLocalIsMuted(val === 0);
+      }
     }
   };
 
-  const toggleMute = () => {
-    if (audioRef.current) {
-      if (isMuted) {
-        audioRef.current.volume = volume || 0.85;
-        setIsMuted(false);
+  const handleToggleMute = () => {
+    if (isUsingYouTube) {
+      youtubePlayer.toggleMute();
+    } else if (audioRef?.current) {
+      if (localIsMuted) {
+        audioRef.current.volume = localVolume || 0.85;
+        setLocalIsMuted(false);
       } else {
         audioRef.current.volume = 0;
-        setIsMuted(true);
+        setLocalIsMuted(true);
       }
+    }
+  };
+
+  // Play / Pause dispatcher
+  const handlePlayPause = () => {
+    if (isUsingYouTube) {
+      youtubePlayer.togglePlay();
+    } else {
+      fallbackPlayPause?.();
+    }
+  };
+
+  // Next Track dispatcher
+  const handleNext = () => {
+    if (isUsingYouTube) {
+      youtubePlayer.nextTrack();
+    } else {
+      fallbackNext?.();
+    }
+  };
+
+  // Previous Track dispatcher
+  const handlePrev = () => {
+    if (isUsingYouTube) {
+      youtubePlayer.prevTrack();
+    } else {
+      fallbackPrev?.();
+    }
+  };
+
+  // Shuffle dispatcher
+  const handleShuffle = () => {
+    if (isUsingYouTube) {
+      youtubePlayer.toggleShuffle();
+    } else {
+      fallbackNext?.();
     }
   };
 
@@ -128,6 +186,9 @@ const FloatingMusicPlayer = ({
       }
     } else {
       setActiveMode('radio');
+      if (!isPlaying) {
+        handlePlayPause();
+      }
     }
   };
 
@@ -144,13 +205,13 @@ const FloatingMusicPlayer = ({
 
   return (
     <div className="floating-player-wrapper" role="region" aria-label="Audio Player">
-      {/* Top Floating Category Pills: PUJA RADIO, DHAK, and SPOTIFY PLAYLIST */}
+      {/* Top Floating Category Pills: PUJA RADIO and DHAK */}
       <div className="player-mode-pills-row">
         <button 
           type="button" 
           className={`player-mode-pill ${activeMode === 'radio' && !isDhakActive ? 'is-active' : ''}`}
           onClick={() => handleModeClick('radio')}
-          title="Durga Puja Radio"
+          title="Durga Puja Radio (YouTube Playlist)"
         >
           <Radio size={13} className="mode-pill-icon" />
           <span>PUJA RADIO</span>
@@ -167,80 +228,83 @@ const FloatingMusicPlayer = ({
           <span>DHAK</span>
           {isDhakActive && <span className="dhak-dot-indicator" />}
         </button>
-
-        {/* Official Spotify Playlist Embed Launcher Pill */}
-        <button
-          type="button"
-          className="player-mode-pill spotify-status-pill status-ready"
-          onClick={onToggleLibrary}
-          title="Open official Spotify playlist embed"
-        >
-          <Music2 size={13} className="mode-pill-icon" />
-          <span>SPOTIFY PLAYLIST</span>
-        </button>
       </div>
 
       {/* Main Glass Floating Player Container */}
       <div className={`floating-glass-player devipaksha-player-theme ${isPlaying ? 'glow-active' : ''}`}>
         
-        {/* Left: Album Artwork */}
-        <div className="player-artwork-box">
-          <img 
-            src={displayTrack.cover} 
-            alt={displayTrack.title} 
-            className="player-artwork-img"
-          />
-          {isPlaying && (
-            <div className="audio-equalizer-bars" aria-hidden="true">
-              <span className="eq-bar bar-1"></span>
-              <span className="eq-bar bar-2"></span>
-              <span className="eq-bar bar-3"></span>
-            </div>
-          )}
-        </div>
-
-        {/* Center: Track details & Progress timeline */}
-        <div className="player-center-track-block">
-          <div className="player-meta-stacked">
-            <div className="player-title-line">
-              <span 
-                className="player-track-title" 
-                title={displayTrack.title}
-                tabIndex={0}
-                aria-label={`Current track: ${displayTrack.title}`}
-              >
-                {displayTrack.title}
-              </span>
-            </div>
-            <span 
-              className="player-artist-name" 
-              title={displayTrack.artist}
-              tabIndex={0}
-              aria-label={`Artist: ${displayTrack.artist}`}
-            >
-              {displayTrack.artist}
-            </span>
+        {/* Left & Center: Album Artwork and Track Info */}
+        <div className="player-track-info-group">
+          <div className="player-artwork-box">
+            <img 
+              src={displayTrack?.cover || '/devipaksha_durga_puja_wallpaper.jpg'} 
+              alt={displayTrack?.title || 'Durga Puja Track'} 
+              className="player-artwork-img"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = '/devipaksha_durga_puja_wallpaper.jpg';
+              }}
+            />
+            {isPlaying && (
+              <div className="audio-equalizer-bars" aria-hidden="true">
+                <span className="eq-bar bar-1"></span>
+                <span className="eq-bar bar-2"></span>
+                <span className="eq-bar bar-3"></span>
+              </div>
+            )}
           </div>
 
-          {/* Progress bar with timestamp */}
-          <div className="player-progress-area">
-            <span className="time-display">{formatTime(currentTime)}</span>
-            <div className="progress-slider-container">
-              <input
-                type="range"
-                min="0"
-                max={totalDuration}
-                step="1"
-                value={currentTime}
-                onChange={handleSeek}
-                className="progress-seek-slider"
-                aria-label="Playback timeline"
-                style={{
-                  background: `linear-gradient(to right, #ffd782 0%, #ffd782 ${progressPercent}%, rgba(255,255,255,0.2) ${progressPercent}%, rgba(255,255,255,0.2) 100%)`
-                }}
-              />
+          {/* Center: Track details & Progress timeline */}
+          <div className="player-center-track-block">
+            <div className="player-meta-stacked">
+              <div className="player-title-line">
+                <span 
+                  className="player-track-title" 
+                  title={displayTrack?.title}
+                  tabIndex={0}
+                  aria-label={`Current track: ${displayTrack?.title}`}
+                >
+                  {displayTrack?.title || 'Durga Puja Songs'}
+                </span>
+              </div>
+              <span 
+                className="player-artist-name" 
+                title={displayTrack?.artist}
+                tabIndex={0}
+                aria-label={`Artist: ${displayTrack?.artist}`}
+              >
+                {displayTrack?.artist || 'Sharadotsav Collection'}
+              </span>
+
+              {/* Error or skip notification banner if unplayable */}
+              {playerError && (
+                <div className="player-status-notice" role="status" title={playerError}>
+                  <AlertCircle size={11} />
+                  <span>{playerError}</span>
+                </div>
+              )}
             </div>
-            <span className="time-display">{formatTime(totalDuration)}</span>
+
+            {/* Progress bar with real-time timestamp */}
+            <div className="player-progress-area">
+              <span className="time-display">{formatTime(currentTime)}</span>
+              <div className="progress-slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max={totalDuration}
+                  step="1"
+                  value={currentTime}
+                  onChange={handleSeek}
+                  className="progress-seek-slider"
+                  aria-label="Playback timeline"
+                  style={{
+                    background: `linear-gradient(to right, #ffd782 0%, #ffd782 ${progressPercent}%, rgba(255,255,255,0.2) ${progressPercent}%, rgba(255,255,255,0.2) 100%)`
+                  }}
+                />
+              </div>
+              <span className="time-display">{formatTime(totalDuration)}</span>
+            </div>
           </div>
         </div>
 
@@ -248,9 +312,9 @@ const FloatingMusicPlayer = ({
         <div className="player-buttons-group">
           <button 
             type="button" 
-            className="player-control-btn btn-shuffle" 
-            onClick={onNext}
-            title="Shuffle Track"
+            className={`player-control-btn btn-shuffle ${isShuffled ? 'is-shuffled-active' : ''}`} 
+            onClick={handleShuffle}
+            title={isShuffled ? "Shuffle active (click to cycle)" : "Shuffle playlist tracks"}
             aria-label="Shuffle Track"
           >
             <Shuffle size={14} />
@@ -259,7 +323,7 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-control-btn" 
-            onClick={onPrev}
+            onClick={handlePrev}
             title="Previous Track"
             aria-label="Previous Track"
           >
@@ -269,7 +333,7 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-play-btn" 
-            onClick={onPlayPause}
+            onClick={handlePlayPause}
             title={isPlaying ? 'Pause' : 'Play'}
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >
@@ -285,14 +349,14 @@ const FloatingMusicPlayer = ({
           <button 
             type="button" 
             className="player-control-btn" 
-            onClick={onNext}
+            onClick={handleNext}
             title="Next Track"
             aria-label="Next Track"
           >
             <SkipForward size={16} />
           </button>
 
-          {/* Library / Playlist Drawer Toggle Button */}
+          {/* Library / Spotify Playlist Drawer Toggle Button */}
           <button
             type="button"
             className="player-control-btn btn-library-open"
@@ -304,13 +368,13 @@ const FloatingMusicPlayer = ({
           </button>
         </div>
 
-        {/* Volume & Spotify Direct Link */}
+        {/* Volume & External Links (YouTube Music & Spotify) */}
         <div className="player-right-actions">
           <div className="player-volume-group">
             <button 
               type="button" 
               className="player-icon-btn" 
-              onClick={toggleMute}
+              onClick={handleToggleMute}
               title={isMuted ? 'Unmute' : 'Mute'}
               aria-label="Toggle Mute"
             >
@@ -328,16 +392,29 @@ const FloatingMusicPlayer = ({
             />
           </div>
 
-          <a
-            href={SPOTIFY_PLAYLIST_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="spotify-track-pill"
-            title="Open playlist in Spotify"
-          >
-            <span>Spotify</span>
-            <ExternalLink size={11} />
-          </a>
+          <div className="player-direct-links-row">
+            <a
+              href={YOUTUBE_PLAYLIST_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="spotify-track-pill yt-track-pill"
+              title="Open playlist in YouTube Music"
+            >
+              <span>YT Music</span>
+              <ExternalLink size={11} />
+            </a>
+
+            <a
+              href={SPOTIFY_PLAYLIST_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="spotify-track-pill"
+              title="Open playlist in Spotify"
+            >
+              <span>Spotify</span>
+              <ExternalLink size={11} />
+            </a>
+          </div>
         </div>
 
       </div>

@@ -4,6 +4,78 @@ export const SPOTIFY_PLAYLIST_ID = '1zVKSwcN1UDYBXsBWQlp16';
 export const SPOTIFY_PLAYLIST_URL = 'https://open.spotify.com/playlist/1zVKSwcN1UDYBXsBWQlp16?si=0e4f04b0cfb5408b';
 export const SPOTIFY_EMBED_URL = 'https://open.spotify.com/embed/playlist/1zVKSwcN1UDYBXsBWQlp16?utm_source=generator&si=0e4f04b0cfb5408b';
 
+// Official YouTube Music Playlist Configuration
+// https://music.youtube.com/playlist?list=PLJAiFJ6bGyew ("Durga Puja Songs" by Arup Mukherjee)
+export const YOUTUBE_PLAYLIST_ID = 'PLJAiFJ6bGyew';
+export const YOUTUBE_PLAYLIST_URL = 'https://music.youtube.com/playlist?list=PLJAiFJ6bGyew';
+
+// Ordered video IDs directly from playlist PLJAiFJ6bGyew
+// Used as fallback playlist array for YouTube IFrame Player when YouTube blocks playlist cueing
+export const YOUTUBE_PLAYLIST_TRACK_IDS = [
+  'SFJeglBF5cg', // Dugga Elo - Monali Thakur
+  '7uzjfZ423Kc', // Dhak Baja Kashor Baja
+  'w6SQsKD2U-Y', // Aamaar Dugga
+  'upYGF3YAHeo', // O Menoka O Menoka
+  'p_hqO0sJh-I', // Ailo Uma Barite
+  'x_Nar1eYzBM', // Uma Ashe Notun Saje
+  'I5uMBp5wDhI', // Abar Elo Maa
+  'CWtqPoZrUoA', // Joy Joy Durga Ma
+  'uLSEEBGr4Ag', // Durga Maa
+  'W-YAf-bHkCw', // Gouri Elo Dekhe Jalo
+  'JOQdF0wRjYY',
+  'Ku7mJminJxI',
+  'z-T4qiQMXaw',
+  '1Yycc3tejNw',
+  'nLrpLXaWbxk',
+  'ZusnukjtotQ',
+  'hDve9YmTZq4',
+  'sto9TBxGibE',
+  'mXqUIFUYqpM',
+  'UpeueoYgHnE',
+  'E40N8rKKTCc',
+  'srJlx60zfBQ',
+  'jwMo3vrsL7s',
+  'nH65Xk8kPjQ',
+  'Rx7l8bjzjg4',
+  'CYcqPK0Dl60',
+  'PEiFJAy_zsM',
+  'YnU9c1aj5hY',
+  'VNI_XEx7z-g',
+  'avySoa5OW1w',
+  'hDukD5TJmV4',
+  'LLer3VPOcxg',
+  'BvIcx9ev8X0',
+  'j9_MLElmS9g',
+  'cFsCf0MGuuA',
+  '63X0l49OyjI',
+  '_GUdZJQun2I',
+  'QvhNGDZhJvE',
+  'j7nWykTLEMs',
+  'DxaNt-pmObM',
+  'wLVkrgkoPro',
+  '6ZCfPaz28_U',
+  'YC4ERU01ZxY',
+  'Z7kpAzbC66E',
+  '43_oBh4YsQs',
+  '_RmN29SHVS8',
+  'PRTXLKCV6Nk',
+  'gbGVjyHq8iA',
+  'ocCQ1UVsel8',
+  '707QgEnx8Hs',
+  'd-NMikRHMQQ',
+  'ADpMft-PUb8',
+  'S-XOArX0faE',
+  'AFOg5wPxduc',
+  'jkCWHTt2ml4',
+  'NwjbjGQXkdU',
+  'G2tTYmSzR6U',
+  'tMD3VtUyGz8',
+  'eoLZVAk9t_U',
+  'Ev1NLm7Kd4g',
+  '0-rIe6yzwGE',
+  '8NeUGOEpGh0'
+];
+
 // Local ambient audio streams for background radio when Spotify Web Playback SDK is not active
 export const LOCAL_AMBIENT_TRACKS = [
   {

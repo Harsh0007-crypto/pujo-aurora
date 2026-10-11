@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Languages, Clock, Music, Sparkles, Sun, Moon, Bot } from 'lucide-react';
-import { SPOTIFY_PLAYLIST_URL } from '../data/tracks';
+import { Languages, Clock, Sparkles, Sun, Moon, Bot } from 'lucide-react';
 
 /**
  * TopNavControls
  * Header bar styled cleanly after the reference image:
  * - Local IST time pill on the left
- * - Day/Night toggle, Experience Pujo, Ask Pujo AI, Spotify playlist shortcut & language toggle on the right
+ * - Day/Night toggle, Experience Pujo, Ask Pujo AI & language toggle on the right
  */
 const TopNavControls = ({ 
   lang, 
   onToggleLang, 
-  onOpenLibrary, 
   isExperienceActive = false, 
   onToggleExperience,
   isNightMode = false,
@@ -46,7 +44,7 @@ const TopNavControls = ({
         <span className="ist-tag">IST</span>
       </div>
 
-      {/* Right controls: Day/Night, Experience Pujo, Spotify Playlist & Language Switcher */}
+      {/* Right controls: Day/Night, Experience Pujo, Ask Pujo AI & Language Switcher */}
       <div className="top-nav-actions">
         {/* Day / Night Mode Toggle */}
         <button
@@ -107,31 +105,6 @@ const TopNavControls = ({
             {lang === 'bn' ? 'পুজো এআই' : 'Ask Pujo AI'}
           </span>
         </button>
-
-        {/* Open Spotify Playlist & Music Drawer */}
-        <button 
-          type="button" 
-          className="nav-control-pill spotify-nav-pill"
-          onClick={onOpenLibrary}
-          aria-label="Open Durga Puja Music & Spotify Playlist"
-        >
-          <span className="spotify-dot-icon">●</span>
-          <span className="lang-label">
-            {lang === 'bn' ? 'স্পটিফাই প্লেলিস্ট' : 'Spotify Playlist'}
-          </span>
-        </button>
-
-        {/* Direct Spotify External Link */}
-        <a 
-          href={SPOTIFY_PLAYLIST_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="nav-control-pill icon-only-pill"
-          title="Open in Spotify Web / App"
-          aria-label="Open Spotify externally"
-        >
-          <Music size={14} className="spotify-green-icon" />
-        </a>
 
         {/* Language Toggle */}
         <button 

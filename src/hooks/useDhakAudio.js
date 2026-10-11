@@ -13,6 +13,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
  */
 export function useDhakAudio({
   mainAudioRef,
+  youtubePlayer,
   spotifyPlayer,
   userVolume = 0.85,
   isMainPlaying = false
@@ -68,7 +69,7 @@ export function useDhakAudio({
     };
   }, []);
 
-  // Helper to adjust main player volume smoothly (either HTML5 audio or Spotify SDK)
+  // Helper to adjust main player volume smoothly (HTML5 audio, YouTube Player, or Spotify SDK)
   const setMainVolumeRatio = useCallback((ratio) => {
     // Clamp ratio between 0 and 1
     const clamped = Math.max(0, Math.min(1, ratio));
@@ -77,10 +78,14 @@ export function useDhakAudio({
       mainAudioRef.current.volume = clamped;
     }
 
+    if (youtubePlayer && typeof youtubePlayer.setDuckedVolumeRatio === 'function') {
+      youtubePlayer.setDuckedVolumeRatio(clamped);
+    }
+
     if (spotifyPlayer?.isAvailable && spotifyPlayer?.isReady && typeof spotifyPlayer.setVolume === 'function') {
       spotifyPlayer.setVolume(clamped).catch(() => {});
     }
-  }, [mainAudioRef, spotifyPlayer]);
+  }, [mainAudioRef, youtubePlayer, spotifyPlayer]);
 
   // Cancel any running fade animation
   const clearFadeInterval = () => {
@@ -127,7 +132,9 @@ export function useDhakAudio({
     let step = 0;
 
     const startDhakVol = dhakAudio.volume;
-    const startMusicVol = mainAudioRef?.current ? mainAudioRef.current.volume : baseMusicVol;
+    const startMusicVol = youtubePlayer
+      ? (youtubePlayer.volume ?? baseMusicVol)
+      : (mainAudioRef?.current ? mainAudioRef.current.volume : baseMusicVol);
 
     fadeIntervalRef.current = setInterval(() => {
       step++;
@@ -153,7 +160,7 @@ export function useDhakAudio({
         }
       }
     }, stepMs);
-  }, [userVolume, isMainPlaying, mainAudioRef, setMainVolumeRatio]);
+  }, [userVolume, isMainPlaying, mainAudioRef, youtubePlayer, setMainVolumeRatio]);
 
   /**
    * Smoothly crossfade out Dhak and restore main music volume
@@ -167,7 +174,9 @@ export function useDhakAudio({
 
     const baseMusicVol = savedMusicVolumeRef.current !== null ? savedMusicVolumeRef.current : userVolume;
     const startDhakVol = dhakAudio.volume;
-    const startMusicVol = mainAudioRef?.current ? mainAudioRef.current.volume : baseMusicVol;
+    const startMusicVol = youtubePlayer
+      ? (youtubePlayer.volume ?? baseMusicVol)
+      : (mainAudioRef?.current ? mainAudioRef.current.volume : baseMusicVol);
 
     const durationMs = 2000; // 2 seconds fade out
     const stepMs = 50;
@@ -197,10 +206,13 @@ export function useDhakAudio({
 
         // Final restore
         setMainVolumeRatio(baseMusicVol);
+        if (youtubePlayer && typeof youtubePlayer.restoreVolume === 'function') {
+          youtubePlayer.restoreVolume();
+        }
         savedMusicVolumeRef.current = null;
       }
     }, stepMs);
-  }, [userVolume, mainAudioRef, setMainVolumeRatio]);
+  }, [userVolume, mainAudioRef, youtubePlayer, setMainVolumeRatio]);
 
   // Toggle Dhak on/off
   const toggleDhak = useCallback(() => {
