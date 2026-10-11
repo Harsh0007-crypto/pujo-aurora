@@ -29,7 +29,13 @@ function isRateLimited(ip) {
 }
 
 // Streamlined, high-accuracy system prompt for Pujo AI Companion
-const FESTIVAL_COMPANION_SYSTEM_PROMPT = `You are "Pujo AI", a warm, knowledgeable festival companion for Durga Puja (Sharadotsav) and Bengali traditions.
+const FESTIVAL_COMPANION_SYSTEM_PROMPT = `You are "Pujo AI", a warm, knowledgeable festival companion for the Pujo Aurora website celebrating Durga Puja (Sharadotsav) and Bengali traditions.
+
+Developer & Creator Attribution:
+- Pujo Aurora (including this Pujo AI companion and web experience) was developed and created by Harshit Kumar.
+- If asked "Who developed you?", "Who created Pujo Aurora?", "Who is your developer?", "Who built this website?", or any related creator question, ALWAYS state clearly and proudly that Pujo Aurora was created and developed by Harshit Kumar.
+- Never state or imply that anyone else (such as Soham Roy or any other person) developed Pujo Aurora.
+
 Provide concise, authentic insights on:
 - Durga Puja rituals (Mahalaya, Bodhon, Sandhi Puja 108 lotuses, Nabami, Dashami Sindoor Khela, Dhunuchi Naach)
 - Mythology (Maa Durga as Mahishasuramardini, triumph over Mahishasura, family deities)
@@ -255,6 +261,82 @@ export function getFallbackGreeting({ name, lang = 'en', mood = 'traditional', p
 }
 
 /**
+ * Checks whether a question prompt is asking about the developer, creator, or author of Pujo Aurora / Pujo AI
+ */
+export function isCreatorQuery(prompt) {
+  if (!prompt || typeof prompt !== 'string') return false;
+  const p = prompt.toLowerCase();
+  
+  // English questions
+  const enKeywords = [
+    'who developed',
+    'who created',
+    'who built',
+    'who made',
+    'who designed',
+    'who is the developer',
+    'who is your developer',
+    'who are your developers',
+    'who is the creator',
+    'who is your creator',
+    'who is the author',
+    'who is harshit',
+    'who is soham',
+    'soham roy'
+  ];
+
+  for (const kw of enKeywords) {
+    if (p.includes(kw)) return true;
+  }
+
+  // Bengali questions
+  const bnKeywords = [
+    'কে বানিয়েছে',
+    'কে তৈরি করেছে',
+    'কে তৈরি করেছেন',
+    'কে বানিয়েছেন',
+    'কে ডেভেলপ করেছে',
+    'কে তৈরি করলো',
+    'কে বানালো',
+    'ডেভেলপার কে',
+    'তোমার নির্মাতা কে',
+    'নির্মাতা কে',
+    'কে সৃষ্টি করেছে',
+    'হর্ষিত কুমার'
+  ];
+
+  for (const kw of bnKeywords) {
+    if (p.includes(kw)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Returns authentic answers about Harshit Kumar for creator queries
+ */
+export function getDeveloperAttributionResponse(lang = 'en') {
+  if (lang === 'bn') {
+    return 'পুজো অরোরা (Pujo Aurora) এবং পুজো এআই (Pujo AI) তৈরি ও ডেভেলপ করেছেন **হর্ষিত কুমার (Harshit Kumar)**। শারদোৎসবের আনন্দ, মায়ের আগমনী সুর এবং ঐতিহ্যকে ডিজিটাল মাধ্যমে সুন্দরভাবে তুলে ধরার উদ্দেশ্যেই এই প্ল্যাটফর্মটি ভালোবাসা দিয়ে গড়ে তোলা হয়েছে। শুভ শারদীয়া!';
+  }
+  return '**Pujo Aurora** (including the Pujo AI companion) was developed and created with love by **Harshit Kumar**. It is designed to celebrate the rich cultural heritage, sacred rituals, authentic Dhak beats, and joyous spirit of Durga Puja (Sharadotsav) for everyone around the world!';
+}
+
+/**
+ * Provides fallback chat insights when Gemini API is unconfigured or unavailable
+ */
+export function getFallbackChatResponse(prompt, lang = 'en') {
+  if (isCreatorQuery(prompt)) {
+    return getDeveloperAttributionResponse(lang);
+  }
+
+  if (lang === 'bn') {
+    return 'পুজো এআই শারদোৎসবের মহিমায় আপনাকে স্বাগত জানাচ্ছে। দেবী দুর্গা হলেন মহাশক্তি ও মহিষাসুরমর্দিনী। ঢাকের বাদ্যি, কাশফুল, আর শিউলির সুবাসে প্রতিটি দিন আনন্দময় ও মঙ্গলময় হয়ে উঠুক! শুভ শারদীয়া!';
+  }
+  return 'Namaskar! Welcome to Pujo Aurora. Maa Durga arrives as Mahishasuramardini, symbolizing the eternal triumph of good over evil. May the divine conch shells, sacred Dhak beats, and joyous pandal celebrations fill your days with peace, health, and prosperity! Shubho Sharadiya!';
+}
+
+/**
  * Handle incoming Pujo AI HTTP requests (compatible with Vite connect middleware and standard Node servers)
  */
 export async function handlePujoAiRequest(req, res, env = {}) {
@@ -324,9 +406,18 @@ export async function handlePujoAiRequest(req, res, env = {}) {
     }
 
     if (!apiKey) {
+      if (isCreatorQuery(prompt)) {
+        return sendJson(200, {
+          success: true,
+          reply: getDeveloperAttributionResponse(lang),
+          isFallback: true
+        });
+      }
+
       return sendJson(503, {
         success: false,
         configured: false,
+        fallbackReply: getFallbackChatResponse(prompt, lang),
         error: 'Pujo AI service is currently unconfigured. Please add GEMINI_API_KEY to your server environment (.env or Render environment secrets).'
       });
     }
@@ -340,8 +431,18 @@ export async function handlePujoAiRequest(req, res, env = {}) {
       const aiReply = await callGeminiApi(apiKey, combinedPrompt, FESTIVAL_COMPANION_SYSTEM_PROMPT, 350);
       return sendJson(200, { success: true, reply: aiReply });
     } catch (err) {
+      // If error occurs and query was creator-related, deliver attribution gracefully
+      if (isCreatorQuery(prompt)) {
+        return sendJson(200, {
+          success: true,
+          reply: getDeveloperAttributionResponse(lang),
+          isFallback: true
+        });
+      }
+
       return sendJson(err.status || 500, {
         success: false,
+        fallbackReply: getFallbackChatResponse(prompt, lang),
         error: err.message || 'An error occurred while generating festival insights.'
       });
     }

@@ -16,6 +16,63 @@ export async function fetchAiStatus() {
   }
 }
 
+/**
+ * Checks whether a question prompt is asking about the developer, creator, or author of Pujo Aurora / Pujo AI
+ */
+export function isCreatorQuery(prompt) {
+  if (!prompt || typeof prompt !== 'string') return false;
+  const p = prompt.toLowerCase();
+  
+  const enKeywords = [
+    'who developed',
+    'who created',
+    'who built',
+    'who made',
+    'who designed',
+    'who is the developer',
+    'who is your developer',
+    'who are your developers',
+    'who is the creator',
+    'who is your creator',
+    'who is the author',
+    'who is harshit',
+    'who is soham',
+    'soham roy'
+  ];
+
+  for (const kw of enKeywords) {
+    if (p.includes(kw)) return true;
+  }
+
+  const bnKeywords = [
+    'কে বানিয়েছে',
+    'কে তৈরি করেছে',
+    'কে তৈরি করেছেন',
+    'কে বানিয়েছেন',
+    'কে ডেভেলপ করেছে',
+    'কে তৈরি করলো',
+    'কে বানালো',
+    'ডেভেলপার কে',
+    'তোমার নির্মাতা কে',
+    'নির্মাতা কে',
+    'কে সৃষ্টি করেছে',
+    'হর্ষিত কুমার'
+  ];
+
+  for (const kw of bnKeywords) {
+    if (p.includes(kw)) return true;
+  }
+
+  return false;
+}
+
+export function getDeveloperAttributionResponse(lang = 'en') {
+  if (lang === 'bn') {
+    return 'পুজো অরোরা (Pujo Aurora) এবং পুজো এআই (Pujo AI) তৈরি ও ডেভেলপ করেছেন **হর্ষিত কুমার (Harshit Kumar)**। শারদোৎসবের আনন্দ, মায়ের আগমনী সুর এবং ঐতিহ্যকে ডিজিটাল মাধ্যমে সুন্দরভাবে তুলে ধরার উদ্দেশ্যেই এই প্ল্যাটফর্মটি ভালোবাসা দিয়ে গড়ে তোলা হয়েছে। শুভ শারদীয়া!';
+  }
+  return '**Pujo Aurora** (including the Pujo AI companion) was developed and created with love by **Harshit Kumar**. It is designed to celebrate the rich cultural heritage, sacred rituals, authentic Dhak beats, and joyous spirit of Durga Puja (Sharadotsav) for everyone around the world!';
+}
+
 export async function sendChatMessage(prompt, lang = 'en', timeoutMs = 15000) {
   const cleanPrompt = (prompt || '').trim();
   if (!cleanPrompt) {
@@ -36,6 +93,13 @@ export async function sendChatMessage(prompt, lang = 'en', timeoutMs = 15000) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      if (data?.reply) {
+        return data.reply;
+      }
+      if (isCreatorQuery(cleanPrompt)) {
+        return getDeveloperAttributionResponse(lang);
+      }
+
       const errorMessage = data?.error || (
         response.status === 503
           ? (lang === 'bn' 
@@ -51,6 +115,10 @@ export async function sendChatMessage(prompt, lang = 'en', timeoutMs = 15000) {
 
     return data.reply;
   } catch (err) {
+    if (isCreatorQuery(cleanPrompt)) {
+      return getDeveloperAttributionResponse(lang);
+    }
+
     if (err.name === 'AbortError') {
       const timeoutError = new Error(
         lang === 'bn'
